@@ -1,51 +1,79 @@
-import { pool } from '../config/database.js';
+// src/models/usuario.model.js (CORREGIDO a ES Modules)
 
-// No devolver nunca el password_hash en las consultas SELECT
-const CAMPOS_PUBLICOS = 'id, nombres, apellidos, email, area, cargo, fecha_creacion';
+import pool from '../config/database.js'; // Importación por defecto
+import { v4 as uuidv4 } from 'uuid'; // Importación con nombre desde librería
 
-export const findAll = async () => {
-  const [rows] = await pool.execute(`SELECT ${CAMPOS_PUBLICOS} FROM usuarios`);
-  return rows;
-};
+/**
+ * Inserta un nuevo usuario en la base de datos.
+ * ... (Código de la función crearUsuario) ...
+ */
+async function crearUsuario(nombreCompleto, email, passwordHash, idRol) {
+    const idUsuario = uuidv4();
+    const query = `
+        INSERT INTO usuarios 
+        (id_usuario, nombre_completo, email, password_hash, id_rol) 
+        VALUES (?, ?, ?, ?, ?)
+    `;
+    const values = [idUsuario, nombreCompleto, email, passwordHash, idRol];
 
-export const findById = async (id) => {
-  const [rows] = await pool.execute(`SELECT ${CAMPOS_PUBLICOS} FROM usuarios WHERE id = ?`, [id]);
-  return rows[0] || null;
-};
+    try {
+        await pool.query(query, values);
+        return { 
+            id_usuario: idUsuario, 
+            nombre_completo: nombreCompleto, 
+            email: email,
+            id_rol: idRol
+        };
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            const err = new Error('El correo electrónico ya está registrado.');
+            err.status = 409; 
+            throw err;
+        }
+        throw error; 
+    }
+}
 
-// Esta función sí necesita el hash para la comparación, por lo que lo devuelve.
-export const findByEmail = async (email) => {
-  const [rows] = await pool.execute('SELECT * FROM usuarios WHERE email = ?', [email]);
-  return rows[0] || null;
-};
+/**
+ * Busca un usuario por su email para el proceso de Login.
+ * ... (Código de la función buscarPorEmail) ...
+ */
+async function buscarPorEmail(email) {
+    const query = 'SELECT id_usuario, password_hash, id_rol, nombre_completo, activo FROM usuarios WHERE email = ?';
+    
+    try {
+        const [rows] = await pool.query(query, [email]);
+        return rows.length > 0 ? rows[0] : null;
 
-export const create = async (datosUsuario) => {
-  const { nombres, apellidos, email, password_hash, area, cargo } = datosUsuario;
-  const [result] = await pool.execute(
-    'INSERT INTO usuarios (nombres, apellidos, email, password_hash, area, cargo) VALUES (?, ?, ?, ?, ?, ?)',
-    [nombres, apellidos, email, password_hash, area, cargo || null]
-  );
-  // Devolvemos el usuario recién creado (sin el hash)
-  return findById(result.insertId);
-};
+    } catch (error) {
+        console.error("Error al buscar usuario por email en DB:", error);
+        throw new Error('Error de base de datos.');
+    }
+}
 
-export const update = async (id, datosUsuario) => {
-  // Construye la consulta dinámicamente para actualizar solo los campos proporcionados
-  const campos = Object.keys(datosUsuario);
-  const valores = Object.values(datosUsuario);
+/**
+ * Obtiene la lista de todos los usuarios (solo datos públicos).
+ * @returns {Array} Lista de objetos de usuario.
+ */
+async function obtenerTodos() {
+    // IMPORTANTE: Excluimos el password_hash de la selección
+    const query = `
+        SELECT id_usuario, nombre_completo, email, id_rol, activo, fecha_creacion 
+        FROM usuarios
+    `;
+    
+    try {
+        const [rows] = await pool.query(query);
+        return rows;
+    } catch (error) {
+        console.error("Error al obtener todos los usuarios en DB:", error);
+        throw new Error('Error de base de datos al listar usuarios.');
+    }
+}
 
-  if (campos.length === 0) {
-    return { affectedRows: 0 }; // No hay nada que actualizar
-  }
-
-  const setClause = campos.map(campo => `${campo} = ?`).join(', ');
-  const sql = `UPDATE usuarios SET ${setClause} WHERE id = ?`;
-  
-  const [result] = await pool.execute(sql, [...valores, id]);
-  return result;
-};
-
-export const remove = async (id) => {
- const [result] = await pool.execute('DELETE FROM usuarios WHERE id = ?', [id]);
-  return result;
+// Exportación con nombre
+export {
+    crearUsuario,
+    buscarPorEmail,
+    obtenerTodos, // <--- ¡Añadido!
 };

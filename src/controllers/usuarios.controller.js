@@ -1,65 +1,59 @@
-import { identityService } from '../services/identity.service.js';
+// src/controllers/usuarios.controller.js (COMPLETO Y CORREGIDO)
 
-export const obtenerUsuarios = async (req, res) => {
-  try {
-    const usuarios = await identityService.obtenerTodosLosUsuarios();
-    res.status(200).json(usuarios);
-  } catch (error) {
-    res.status(500).json({ mensaje: 'Error al obtener los usuarios.', error: error.message });
-  }
-};
+// Importamos el Modelo (asegúrate de que exista y use 'export' con nombre)
+import * as usuarioModel from '../models/usuario.model.js'; 
 
-export const obtenerUsuarioPorId = async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const usuario = await identityService.obtenerUsuarioPorId(id);
-    if (!usuario) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
-    }
-    res.status(200).json(usuario);
-  } catch (error) {
-    res.status(500).json({ mensaje: 'Error al obtener el usuario.', error: error.message });
-  }
-};
+/**
+ * Función de ejemplo que solo debe ser accesible para administradores (Rol 1).
+ */
+function crearUsuarioAdmin(req, res) {
+    // Si llegas aquí, significa que el token es válido Y el rol es 1.
+    return res.status(200).json({
+        message: '✅ ACCESO CONCEDIDO. Eres Administrador (Rol ' + req.usuario.rol + '). La lógica de creación se ejecutaría aquí.',
+        usuario: req.usuario
+    });
+}
 
-export const crearUsuario = async (req, res) => {
-  try {
-    const nuevoUsuario = await identityService.crearNuevoUsuario(req.body);
-    res.status(201).json(nuevoUsuario);
-  } catch (error) {
-    // Manejar error de email duplicado
-    if (error.code === 'ER_DUP_ENTRY') {
-       return res.status(409).json({ mensaje: 'El correo electrónico ya está en uso.' });
-    }
-    res.status(500).json({ mensaje: 'Error al crear el usuario.', error: error.message });
-  }
-};
+/**
+ * Ejemplo de un endpoint protegido. Muestra el perfil del usuario autenticado.
+ */
+function obtenerPerfil(req, res) {
+    const { id, nombre, email, rol } = req.usuario; 
 
-export const actualizarUsuario = async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const usuarioActualizado = await identityService.actualizarDatosUsuario(id, req.body);
-    if (!usuarioActualizado) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
-    }
-    res.status(200).json(usuarioActualizado);
-  } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') {
-       return res.status(409).json({ mensaje: 'El correo electrónico ya está en uso.' });
-    }
-    res.status(500).json({ mensaje: 'Error al actualizar el usuario.', error: error.message });
-  }
-};
+    return res.status(200).json({
+        message: 'Acceso a perfil exitoso (Ruta protegida).',
+        perfil: {
+            id_usuario: id,
+            nombre_completo: nombre,
+            email: email,
+            id_rol: rol,
+        }
+    });
+}
 
-export const eliminarUsuario = async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const exito = await identityService.eliminarUsuarioPorId(id);
-    if (!exito) {
-      return res.status(404).json({ mensaje: 'Usuario no encontrado.' });
+/**
+ * Controlador para obtener la lista completa de usuarios (protegida por rol).
+ */
+async function obtenerTodos(req, res) {
+    try {
+        const usuarios = await usuarioModel.obtenerTodos();
+        
+        return res.status(200).json({
+            message: 'Lista de usuarios recuperada exitosamente.',
+            total: usuarios.length,
+            data: usuarios
+        });
+
+    } catch (error) {
+        return res.status(500).json({ 
+            message: error.message || 'Error interno del servidor.' 
+        });
     }
-    res.status(204).send(); // 204 No Content: éxito sin devolver datos
-  } catch (error) {
-    res.status(500).json({ mensaje: 'Error al eliminar el usuario.', error: error.message });
-  }
+}
+
+// ✅ Exportamos todas las funciones (deben estar definidas antes de este bloque)
+export {
+    obtenerPerfil,
+    crearUsuarioAdmin, // ¡Ahora está definida!
+    obtenerTodos, 
 };

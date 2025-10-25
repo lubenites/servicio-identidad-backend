@@ -1,24 +1,18 @@
-import { Router } from 'express';
-import {
-  obtenerUsuarios,
-  obtenerUsuarioPorId,
-  crearUsuario,
-  actualizarUsuario,
-  eliminarUsuario,
-} from '../../controllers/usuarios.controller.js';
-import { verificarToken, esAdmin } from '../../middleware/auth.middleware.js';
+// src/api/routes/usuarios.routes.js (Añadir la nueva ruta)
 
-const router = Router();
+import express from 'express';
+const router = express.Router();
+import * as authMiddleware from '../../middleware/auth.middleware.js';
+import * as usuariosController from '../../controllers/usuarios.controller.js';
 
-// 🔓 Ruta pública: crear usuario (NO necesita token ni admin)
-router.post('/', crearUsuario);
+// ... (otras rutas, como /perfil y /admin/crear) ...
 
-// 🔒 Rutas protegidas: requieren token + admin
-router.use(verificarToken, esAdmin); // 👈 Solo aplica a partir de aquí
+// ✅ RUTA NUEVA: GET /api/v1/identidad/usuarios
+// Protegida: Requiere token (verificarToken) y Rol 1 (Administrador)
+router.get('/',
+    authMiddleware.verificarToken, 
+    authMiddleware.autorizarRol([1]), // Solo Administradores (Rol 1)
+    usuariosController.obtenerTodos
+);
 
-router.get('/', obtenerUsuarios);
-router.get('/:id', obtenerUsuarioPorId);
-router.put('/:id', actualizarUsuario);
-router.delete('/:id', eliminarUsuario);
-
-export default router;
+// ... (export default router)

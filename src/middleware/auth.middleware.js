@@ -1,30 +1,42 @@
-import jwt from 'jsonwebtoken';
+// src/middleware/auth.middleware.js (CORREGIDO a ES Modules)
 
-// Middleware para verificar el token en cada petición protegida
-export const verificarToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Formato "Bearer TOKEN"
+import jwt from 'jsonwebtoken'; // Importar librería
 
-  if (!token) {
-    return res.status(401).json({ mensaje: 'Acceso denegado. No se proporcionó token.' });
-  }
+// Debe ser la misma clave secreta que usas para firmar los tokens en el servicio
+const JWT_SECRET = process.env.JWT_SECRET; 
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, usuario) => {
-    if (err) {
-      return res.status(403).json({ mensaje: 'Token inválido o expirado.' });
+/**
+ * Middleware para verificar la validez del JSON Web Token (JWT).
+ */
+function verificarToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ 
+            message: 'Acceso denegado. No se proporcionó token o el formato es incorrecto.' 
+        });
     }
-    // Adjuntamos el payload del token (que contiene id, area, cargo) al objeto `req`
-    req.usuario = usuario;
-    next();
-  });
-};
 
-// Middleware para verificar si el usuario es administrador
-export const esAdmin = (req, res, next) => {
-  // Este middleware debe ejecutarse DESPUÉS de `verificarToken`
-  if (req.usuario && req.usuario.area === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ mensaje: 'Acceso denegado. Se requieren permisos de administrador.' });
-  }
-};
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ 
+            message: 'Acceso denegado. Token faltante.' 
+        });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.usuario = decoded;
+        next();
+
+    } catch (error) {
+        console.error("Error al verificar token:", error.message);
+        return res.status(401).json({ 
+            message: 'Token inválido o expirado. Vuelva a iniciar sesión.' 
+        });
+    }
+}
+
+// Exportación con nombre
+export { verificarToken, autorizarRol }; // Exportación con nombre

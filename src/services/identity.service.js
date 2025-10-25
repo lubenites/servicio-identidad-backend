@@ -1,69 +1,85 @@
-// src/services/identity.service.js
-import * as UsuarioModel from '../models/usuario.model.js';
-import bcrypt from 'bcrypt';
+// src/services/identity.service.js (CORREGIDO a ES Modules)
+
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+// Importamos todas las exportaciones del modelo con un alias (*)
+import * as usuarioModel from '../models/usuario.model.js'; 
 
-const SALT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET;
+const SALT_ROUNDS = 10; 
 
-// --- AUTENTICACIÓN ---
-const autenticarUsuario = async (email, passwordIngresada) => {
-  const usuario = await UsuarioModel.findByEmail(email);
-  if (!usuario) throw new Error('Credenciales inválidas.');
+/**
+ * Servicio de Registro: Encripta la contraseña y guarda el usuario.
+ * ... (Código de la función registrarUsuarioService) ...
+ */
+async function registrarUsuarioService(data) {
+    const { nombreCompleto, email, password, idRol = 3 } = data;
 
-  const esPasswordCorrecto = await bcrypt.compare(passwordIngresada, usuario.password_hash);
-  if (!esPasswordCorrecto) throw new Error('Credenciales inválidas.');
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    
+    const nuevoUsuario = await usuarioModel.crearUsuario(
+        nombreCompleto, 
+        email, 
+        passwordHash, 
+        idRol
+    );
 
-  const payload = { id: usuario.id, area: usuario.area, cargo: usuario.cargo };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
+    return {
+        id_usuario: nuevoUsuario.id_usuario,
+        nombre_completo: nuevoUsuario.nombre_completo,
+        email: nuevoUsuario.email,
+        id_rol: nuevoUsuario.id_rol
+    };
+}
 
-  // No devolver el hash
-  delete usuario.password_hash;
-  return { token, usuario };
-};
+/**
+ * Servicio de Login: Verifica credenciales y genera JWT.
+ * ... (Código de la función loginService) ...
+ */
+async function loginService(email, password) {
+    const usuario = await usuarioModel.buscarPorEmail(email);
 
-// --- GESTIÓN DE USUARIOS (CRUD) ---
-const obtenerTodosLosUsuarios = async () => {
-  return await UsuarioModel.findAll();
-};
+    if (!usuario) {
+        const error = new Error('Credenciales inválidas.');
+        error.status = 401; 
+        throw error;
+    }
 
-const obtenerUsuarioPorId = async (id) => {
-  return await UsuarioModel.findById(id);
-};
+    if (!usuario.activo) {
+        const error = new Error('Usuario inactivo. Contacte al administrador.');
+        error.status = 403; 
+        throw error;
+    }
 
-const crearNuevoUsuario = async (datosUsuario) => {
-  const { password, ...restoDatos } = datosUsuario;
-  if (!password) throw new Error('La contraseña es requerida para crear un usuario.');
+    const isMatch = await bcrypt.compare(password, usuario.password_hash);
 
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  return await UsuarioModel.create({ ...restoDatos, password_hash: passwordHash });
-};
+    if (!isMatch) {
+        const error = new Error('Credenciales inválidas.');
+        error.status = 401; 
+        throw error;
+    }
 
-const actualizarDatosUsuario = async (id, datosUsuario) => {
-  const { password, ...restoDatos } = datosUsuario;
-  const datosParaActualizar = { ...restoDatos };
+    const payload = {
+        id: usuario.id_usuario,
+        rol: usuario.id_rol,
+        nombre: usuario.nombre_completo,
+        email: usuario.email
+    };
 
-  // Si se proporciona nueva contraseña, la hasheamos
-  if (password) {
-    datosParaActualizar.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
-  }
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
-  const result = await UsuarioModel.update(id, datosParaActualizar);
-  if (result.affectedRows === 0) return null;
+    return {
+        token: token,
+        usuario: {
+            id_usuario: usuario.id_usuario,
+            nombre_completo: usuario.nombre_completo,
+            id_rol: usuario.id_rol,
+        }
+    };
+}
 
-  return await UsuarioModel.findById(id);
-};
-
-const eliminarUsuarioPorId = async (id) => {
-  const result = await UsuarioModel.remove(id);
-  return result.affectedRows > 0;
-};
-
-// Exporta un objeto nombrado tal como lo espera tu controlador
-export const identityService = {
-  autenticarUsuario,
-  obtenerTodosLosUsuarios,
-  obtenerUsuarioPorId,
-  crearNuevoUsuario,
-  actualizarDatosUsuario,
-  eliminarUsuarioPorId
+// Exportación con nombre
+export {
+    registrarUsuarioService,
+    loginService,
 };

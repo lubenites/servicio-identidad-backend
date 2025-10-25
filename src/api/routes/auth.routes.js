@@ -1,8 +1,13 @@
-import { Router } from 'express';
-import { login } from '../../controllers/auth.controller.js';
+// src/api/routes/auth.routes.js (¡DEBE ESTAR ASÍ!)
 
-const router = Router();
+import express from 'express';
+// ✅ Importación con alias para capturar todas las funciones del controlador
+import * as authController from '../../controllers/auth.controller.js'; 
 
-router.post('/login', login);
+const router = express.Router();
 
+router.post('/register', authController.registrarUsuario);
+router.post('/login', authController.iniciarSesion);
+
+// Exportación por defecto
 export default router;

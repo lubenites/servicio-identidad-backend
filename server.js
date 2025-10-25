@@ -1,20 +1,30 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import authRoutes from './src/api/routes/auth.routes.js';
-import usuariosRoutes from './src/api/routes/usuarios.routes.js';
+// server.js (CORREGIDO)
 
-dotenv.config();
+import express from 'express';
+import 'dotenv/config'; 
+import './src/config/database.js'; 
+
+// ✅ CORRECCIÓN: Usamos importación con alias (*) para ambas rutas.
+// Esto funciona si la ruta usa 'export default' o exporta varias cosas.
+import * as authRoutes from './src/api/routes/auth.routes.js';
+import * as usuariosRoutes from './src/api/routes/usuarios.routes.js'; 
 
 const app = express();
-const PORT = process.env.PORT || 4001;
+const PORT = process.env.PORT || 3001; 
 
-app.use(cors());
-app.use(express.json());
+// Middlewares Globales
+app.use(express.json()); 
 
-app.use('/api/auth', authRoutes);
-app.use('/api/usuarios', usuariosRoutes);
+// Rutas: Debemos acceder a la propiedad 'default' para obtener el router
+app.use('/api/v1/identidad', authRoutes.default); 
+app.use('/api/v1/identidad/usuarios', usuariosRoutes.default); 
 
+// Manejador de ruta no encontrada (404)
+app.use((req, res, next) => {
+    res.status(404).json({ message: 'Ruta no encontrada.' });
+});
+
+// Iniciar el servidor
 app.listen(PORT, () => {
-  console.log(`Servicio de Identidad corriendo en http://localhost:${PORT}`);
+    console.log(`🚀 Microservicio de Identidad corriendo en http://localhost:${PORT}`);
 });
